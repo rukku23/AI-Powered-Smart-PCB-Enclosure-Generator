@@ -1,0 +1,49 @@
+# EnclosureAI — Docker Compose Configuration
+# Runs the complete stack: FastAPI backend + React frontend
+
+version: "3.9"
+
+services:
+  # ─── Backend (FastAPI + OpenSCAD CLI) ────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - generated_files:/app/generated_files
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GENERATED_FILES_DIR=/app/generated_files
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ─── Frontend (React + Vite Dev Server) ──────────────────────
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+# ─── Shared Volumes ───────────────────────────────────────────
+volumes:
+  generated_files:
+    driver: local
